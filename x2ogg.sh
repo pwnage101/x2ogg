@@ -3,14 +3,23 @@ rate=$1   # average bitrate (VBR)
 indir=$2  # source directory
 outdir=$3 # destination directory
 
-supported="mp3 flac"
-ext=ogg
+supported="mp3 flac" # list of supported input types
+ext="ogg"
 
-printerr() { echo >&2 $1; exit 1; }
+######################
+#  HELPER FUNCTIONS  #
+######################
 
-test_exist() {
-# look in $1 for files that end with .$2
-# return true if any matches were found
+printerr ()
+{
+  echo >&2 "ABORTING: $1";
+  exit 1;
+}
+
+test_exist ()
+{
+  # look in $1 for files that end with .$2
+  # succeed if any matches were found
   files=`find "$1" -type f -iname "*.$2" | wc -l`
   return `test "$files" != "0"`
 }
@@ -19,35 +28,45 @@ test_exist() {
 #  INITIALIZATION  #
 ####################
 
-# verify existence of input directory and any supported files
-test -d "$indir" || printerr "Input directory not found: $indir"
+# verify existence of input directory
+test -d "$indir" || printerr "input directory not found: \"$indir\""
+
+# verify existence of supported input files
 found=0
 for ext_i in $supported; do
-  test_exist "$indir" "$ext_i" && { (( found++ )); echo "found $ext_i"; }
+  test_exist "$indir" "$ext_i" &&
+  {
+    (( found++ ));
+    echo "found $ext_i";
+  }
 done
-test $found -eq 0 && printerr "No supported input types found."
+test $found -eq 0 && printerr "no supported input types found."
 
 # check dependencies
-hash oggenc 2>&- || printerr "oggenc requred. Aborting."
-test_exist "$indir" "mp3" && {
-  hash mpg321 2>&- || hash mpg123 2>&- || printerr "mpg321 or mpg123 requred. Aborting."
+hash oggenc 2>&- || printerr "oggenc requred."
+test_exist "$indir" "mp3" &&
+{
+  {hash mpg321 2>&- && mpg="mpg321"} ||
+  {hash mpg123 2>&- && mpg="mpg123"} ||
+    printerr "mpg321 or mpg123 requred."
 }
 
-# create output file
-mkdir "$outdir"
+# make sure the output file exists
+test -d "$outdir" || mkdir "$outdir"
+test -d "$outdir" || printerr "output directory could not be created."
 
 ################
 #  CONVERSION  #
 ################
 
 # PROCEDURE: mp3
-for input in "$indir"/*.mp3; do
-  output="$outdir"/`basename "$input" .mp3`.$ext
-  mpg123 "$input" -w - | oggenc - -b $rate -o "$output"
+for input in "$indir"/*.{mp3,MP3}; do
+  output="$outdir"/${input%.*}.$ext
+  $mpg "$input" -w - | oggenc - -b $rate -o "$output"
 done
 
 # PROCEDURE: flac
-for input in "$indir"/*.flac; do
-  output="$outdir"/`basename "$input" .flac`.$ext
+for input in "$indir"/*.{flac,FLAC}; do
+  output="$outdir"/${input%.*}.$ext
   oggenc "$input" -b $rate -o "$output"
 done
