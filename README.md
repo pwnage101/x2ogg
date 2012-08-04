@@ -1,4 +1,6 @@
 x2ogg
 =====
 
-convert anything into ogg vorbis
+Convert anything into ogg vorbis.
+
+Currently "anything" is just mp3 and flac.
